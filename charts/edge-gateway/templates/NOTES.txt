@@ -1,0 +1,10 @@
+Gateway {{ include "edge-gateway.fullname" . }} instalado no namespace {{ .Release.Namespace }}.
+
+Proxy:   service/{{ include "edge-gateway.fullname" . }} porta {{ .Values.service.port }}
+Métricas: porta {{ .Values.metrics.port }} (/metrics, /status/ready)
+{{- if not (include "edge-gateway.configMapName" .) }}
+
+Atenção: usando o kong.yaml embutido na imagem (pensado para o docker-compose).
+Defina declarativeConfig.existingConfigMap ou declarativeConfig.inline com os
+upstreams e a chave pública do realm deste ambiente.
+{{- end }}

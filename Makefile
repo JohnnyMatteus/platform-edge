@@ -9,10 +9,12 @@ KUBECONFORM_IMAGE := ghcr.io/yannh/kubeconform:v0.6.7
 PROMETHEUS_IMAGE  := prom/prometheus:v3.1.0
 KONG_IMAGE        := kong:3.9.1
 K8S_VERSION       := 1.31.0
+# Schemas de CRDs (ServiceMonitor) do catálogo comunitário.
+CRDS_SCHEMA_LOCATION := https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json
 
 TF_DIRS := modules/keycloak-realm modules/vault-edge envs/local
 CHART   := edge-gateway
-CHART_VALUES_VARIANTS := default ci/production-values.yaml
+CHART_VALUES_VARIANTS := default ci/production-values.yaml ci/inline-config-values.yaml
 
 DOCKER_RUN := docker run --rm
 TERRAFORM  := $(DOCKER_RUN) -v $(CURDIR)/terraform:/terraform -w /terraform $(TERRAFORM_IMAGE)
@@ -72,9 +74,10 @@ tf-validate: ## terraform init -backend=false e validate em cada módulo
 
 # ---------- Helm ----------
 .PHONY: helm-lint helm-template kubeconform
-helm-lint: ## helm lint estrito com valores padrão e de produção
+helm-lint: ## helm lint estrito com cada conjunto de valores
 	$(HELM) lint --strict $(CHART)
 	$(HELM) lint --strict $(CHART) -f $(CHART)/ci/production-values.yaml
+	$(HELM) lint --strict $(CHART) -f $(CHART)/ci/inline-config-values.yaml
 
 helm-template: ## Renderiza o chart com valores padrão
 	$(HELM) template edge $(CHART) --namespace edge
@@ -84,7 +87,8 @@ kubeconform: ## Valida os manifestos renderizados contra os schemas do Kubernete
 		echo "==> values: $$variant"; \
 		if [ "$$variant" = "default" ]; then extra=""; else extra="-f $(CHART)/$$variant"; fi; \
 		$(HELM) template edge $(CHART) --namespace edge $$extra \
-		| $(DOCKER_RUN) -i $(KUBECONFORM_IMAGE) -strict -summary -kubernetes-version $(K8S_VERSION) -; \
+		| $(DOCKER_RUN) -i $(KUBECONFORM_IMAGE) -strict -summary -kubernetes-version $(K8S_VERSION) \
+			-schema-location default -schema-location '$(CRDS_SCHEMA_LOCATION)' -; \
 	done
 
 # ---------- Prometheus ----------

@@ -1,0 +1,11 @@
+{{- if and .Values.declarativeConfig.inline (not .Values.declarativeConfig.existingConfigMap) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "edge-gateway.configMapName" . }}
+  labels:
+    {{- include "edge-gateway.labels" . | nindent 4 }}
+data:
+  {{ .Values.declarativeConfig.key }}: |
+    {{- .Values.declarativeConfig.inline | nindent 4 }}
+{{- end }}
