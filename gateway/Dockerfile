@@ -1,6 +1,6 @@
 # Imagem do gateway: Kong OSS com o plugin token-policy e a configuração
 # declarativa embutidos. A mesma imagem roda no compose e no chart Helm.
-FROM kong:3.9.1
+FROM kong:3.9.3
 
 COPY plugins/kong/plugins/token-policy /usr/local/share/lua/5.1/kong/plugins/token-policy
 COPY declarative/kong.yaml /kong/declarative/kong.yaml
