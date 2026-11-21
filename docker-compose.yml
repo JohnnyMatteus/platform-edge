@@ -1,0 +1,134 @@
+# Stack local completa da plataforma de entrada.
+# Todas as credenciais abaixo são DEV ONLY (sufixo/valor "dev-only-...").
+name: platform-edge
+
+x-stub: &stub
+  build:
+    context: .
+    dockerfile: build/upstream-stub/Dockerfile
+  image: platform-edge/upstream-stub:dev
+  healthcheck:
+    test: ["CMD", "/upstream-stub", "healthcheck"]
+    interval: 5s
+    timeout: 3s
+    retries: 10
+  read_only: true
+  security_opt: ["no-new-privileges:true"]
+  networks: [edge]
+
+services:
+  gateway:
+    build: ./gateway
+    image: platform-edge/gateway:dev
+    ports:
+      - "8000:8000"   # proxy
+      - "8100:8100"   # status e /metrics
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    depends_on:
+      payments-stub: { condition: service_healthy }
+      studios-stub: { condition: service_healthy }
+      jaeger: { condition: service_started }
+    security_opt: ["no-new-privileges:true"]
+    networks: [edge]
+
+  # Imita o payments-events-go (projeto 1). Sem porta publicada: só o gateway alcança.
+  payments-stub:
+    <<: *stub
+    environment:
+      SERVICE_NAME: payments-events-go
+
+  # Imita o saas-multitenant (projeto 3).
+  studios-stub:
+    <<: *stub
+    environment:
+      SERVICE_NAME: saas-multitenant
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0.7
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: dev-only-change-me
+      # Fixa o "iss" dos tokens, que o gateway confere (allowed_issuers).
+      KC_HOSTNAME: http://localhost:8080
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      KC_LOG_CONSOLE_OUTPUT: json
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./keycloak/realm-edge.json:/opt/keycloak/data/import/realm-edge.json:ro
+    healthcheck:
+      # A imagem não tem curl: usa /dev/tcp do bash na porta de gestão.
+      test:
+        - CMD-SHELL
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/9000 &&
+          printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
+          grep -q '"UP"' <&3
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 20s
+    networks: [edge]
+
+  vault:
+    image: hashicorp/vault:1.18.3
+    command: ["server", "-dev"]
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: dev-only-root-token
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+    ports:
+      - "8200:8200"
+    cap_add: [IPC_LOCK]
+    healthcheck:
+      test: ["CMD", "vault", "status", "-address=http://127.0.0.1:8200"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [edge]
+
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=2d
+      - --web.enable-lifecycle
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus/rules:/etc/prometheus/rules:ro
+    networks: [edge]
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: dev-only-change-me
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on: [prometheus, jaeger]
+    networks: [edge]
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.65.0
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"   # UI
+    networks: [edge]
+
+networks:
+  edge: {}
