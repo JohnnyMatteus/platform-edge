@@ -60,3 +60,15 @@ resource "vault_kv_secret_v2" "client_secrets" {
     client_secret = module.realm.client_secrets[each.key]
   })
 }
+
+# Endereço do Redis do rate limit (ADR 0010). O gateway lê em gateway/*; em
+# ambientes com senha, ela entra aqui e o pipeline a injeta no kong.yaml.
+resource "vault_kv_secret_v2" "rate_limit_redis" {
+  mount   = module.vault.kv_path
+  name    = "gateway/rate-limit-redis"
+  options = { cas = "0" }
+  data_json = jsonencode({
+    host = "redis"
+    port = 6379
+  })
+}

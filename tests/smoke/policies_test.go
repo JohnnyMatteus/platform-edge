@@ -69,6 +69,8 @@ func TestAuthorizationByRoleAndRoute(t *testing.T) {
 		path   string
 		want   int
 	}{
+		{"studio reads the real saas API route", bruno, http.MethodGet, "/api/v1/sessions", http.StatusOK},
+		{"visitor cannot read the real saas API route", diego, http.MethodGet, "/api/v1/sessions", http.StatusForbidden},
 		{"operator reads payments", ana, http.MethodGet, "/payments/v1/payments", http.StatusOK},
 		{"instructor cannot read payments", bruno, http.MethodGet, "/payments/v1/payments", http.StatusForbidden},
 		{"instructor reads classes", bruno, http.MethodGet, "/studios/v1/classes", http.StatusOK},
@@ -232,5 +234,22 @@ func TestSecurityHeaders(t *testing.T) {
 		if v := r.header.Get(leaked); v != "" {
 			t.Errorf("header %s leaks implementation details: %q", leaked, v)
 		}
+	}
+}
+
+func TestPaymentsWebhookIsAnonymousAndRoutedToTheRealPath(t *testing.T) {
+	r := call(t, http.MethodPost, "/webhooks/pagafacil", "", strings.NewReader(`{"id":"evt_1"}`),
+		map[string]string{"Content-Type": "application/json"})
+	expectStatus(t, r, http.StatusOK)
+
+	var echo struct {
+		Service string `json:"service"`
+		Path    string `json:"path"`
+	}
+	if err := json.Unmarshal(r.body, &echo); err != nil {
+		t.Fatalf("invalid echo: %v", err)
+	}
+	if echo.Service != "payments-events-go" || echo.Path != "/webhooks/pagafacil" {
+		t.Errorf("echo = %+v, want payments-events-go at /webhooks/pagafacil", echo)
 	}
 }

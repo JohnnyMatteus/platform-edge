@@ -35,6 +35,8 @@ metrics:
 networkPolicy:
   ingressFromNamespaces: [ingress-nginx]
   upstreamNamespaces: [payments, studios]
+  redis:
+    namespace: edge-data
 
 extraEnv:
   KONG_NGINX_WORKER_PROCESSES: "4"
