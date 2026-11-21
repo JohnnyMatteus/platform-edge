@@ -1,0 +1,39 @@
+name: Bug
+description: Comportamento incorreto do gateway, das políticas ou da infraestrutura
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: O que aconteceu
+      description: Inclua rota, método, status recebido e o X-Kong-Request-Id, se houver.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: O que era esperado
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Como reproduzir
+      description: Comandos a partir de `make up`. Nunca cole tokens ou segredos reais.
+      render: shell
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      options:
+        - Autenticação (JWT)
+        - Autorização (papéis)
+        - Rate limit
+        - CORS ou limite de payload
+        - Keycloak ou Vault
+        - Terraform ou Helm
+        - Observabilidade
+    validations:
+      required: true

@@ -1,0 +1,9 @@
+# Política do gateway: lê apenas os próprios segredos e emite certificados
+# de cliente para mTLS com os upstreams. Nada de listar ou escrever.
+path "${kv_path}/data/gateway/*" {
+  capabilities = ["read"]
+}
+
+path "${pki_path}/issue/upstream-mtls" {
+  capabilities = ["update"]
+}

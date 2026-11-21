@@ -1,0 +1,26 @@
+name: Melhoria
+description: Nova rota, política ou capacidade da plataforma de entrada
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema
+      description: Quem sente a dor e em qual fluxo de negócio.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposta
+    validations:
+      required: true
+  - type: textarea
+    id: policies
+    attributes:
+      label: Impacto nas políticas
+      description: Papéis exigidos, cota de rate limit, origens de CORS, limite de payload.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas

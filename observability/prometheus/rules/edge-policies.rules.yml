@@ -1,0 +1,68 @@
+# Alertas operacionais das políticas de borda e das dependências.
+groups:
+  - name: edge-policies
+    rules:
+      - alert: EdgeGatewayDown
+        expr: up{job="edge-gateway"} == 0
+        for: 2m
+        labels:
+          severity: page
+        annotations:
+          summary: Prometheus não consegue coletar métricas do gateway
+          description: "Alvo {{ $labels.instance }} fora do ar há 2 minutos. Ver docs/runbooks.md#edgegatewaydown"
+
+      - alert: EdgeAuthFailuresSpike
+        # Mais de 20% de 401 com tráfego relevante: chave do realm trocada sem
+        # atualizar o gateway, client mal configurado ou credential stuffing.
+        expr: |
+          (
+            sum(rate(kong_http_requests_total{code="401"}[5m]))
+            / sum(rate(kong_http_requests_total[5m]))
+          ) > 0.2
+          and
+          sum(rate(kong_http_requests_total[5m])) > 1
+        for: 10m
+        labels:
+          severity: ticket
+        annotations:
+          summary: Proporção de 401 acima de 20%
+          description: "{{ $value | humanizePercentage }} das requisições sem autenticação válida. Ver docs/runbooks.md#edgeauthfailuresspike"
+
+      - alert: EdgeForbiddenSpike
+        # 403 concentrado numa rota costuma ser papel removido no Keycloak ou
+        # rota nova caindo no default-deny.
+        expr: |
+          (
+            sum by (route) (rate(kong_http_requests_total{code="403"}[5m]))
+            / sum by (route) (rate(kong_http_requests_total[5m]))
+          ) > 0.1
+          and
+          sum by (route) (rate(kong_http_requests_total[5m])) > 0.5
+        for: 15m
+        labels:
+          severity: ticket
+        annotations:
+          summary: "Rota {{ $labels.route }} com mais de 10% de 403"
+          description: "{{ $value | humanizePercentage }} de 403 na rota {{ $labels.route }}. Ver docs/runbooks.md#edgeforbiddenspike"
+
+      - alert: EdgeClientRateLimited
+        # Cliente batendo na cota de forma sustentada: avisar o dono do client
+        # ou revisar o contrato de cota, não aumentar o limite às cegas.
+        expr: sum by (consumer, route) (rate(kong_http_requests_total{code="429"}[5m])) > 0.5
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "Cliente {{ $labels.consumer }} limitado na rota {{ $labels.route }}"
+          description: "{{ $value }} respostas 429 por segundo. Ver docs/runbooks.md#edgeclientratelimited"
+
+      - alert: KeycloakDown
+        # O gateway segue validando tokens já emitidos (chave pública local);
+        # novos logins e renovações falham.
+        expr: up{job="keycloak"} == 0
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: Keycloak fora do ar
+          description: "Novos logins falham; tokens emitidos continuam válidos até expirar. Ver docs/runbooks.md#keycloakdown"

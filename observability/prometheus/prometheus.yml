@@ -1,0 +1,23 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    environment: local
+
+rule_files:
+  - /etc/prometheus/rules/*.rules.yml
+
+scrape_configs:
+  - job_name: edge-gateway
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["gateway:8100"]
+
+  - job_name: keycloak
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["keycloak:9000"]
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

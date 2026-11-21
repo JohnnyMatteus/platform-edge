@@ -1,0 +1,17 @@
+# Exercita o caminho de configuração inline (ConfigMap gerado pelo chart).
+networkPolicy:
+  enabled: false
+autoscaling:
+  enabled: false
+replicaCount: 1
+declarativeConfig:
+  inline: |
+    _format_version: "3.0"
+    services:
+      - name: studios
+        url: http://studios.studios.svc.cluster.local:8080
+        routes:
+          - name: studios-public-schedule
+            paths: [/studios/v1/public]
+            methods: [GET]
+            strip_path: false

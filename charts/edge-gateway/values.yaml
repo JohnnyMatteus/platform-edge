@@ -1,0 +1,101 @@
+# Valores padrão: seguros por padrão, pensados para um cluster de staging.
+# Ver ci/production-values.yaml para um exemplo de produção.
+
+replicaCount: 2
+
+image:
+  repository: ghcr.io/johnnymatteus/platform-edge-gateway
+  # Vazio usa o appVersion do chart.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# Configuração declarativa do Kong. Sem nenhum valor, usa o kong.yaml
+# embutido na imagem. Em ambientes reais, aponte para um ConfigMap gerado
+# pelo pipeline (existingConfigMap) ou passe o conteúdo em inline.
+declarativeConfig:
+  existingConfigMap: ""
+  key: kong.yaml
+  inline: ""
+
+# Variáveis extras do Kong (KONG_*), mescladas por chave com as do ambiente.
+extraEnv:
+  KONG_NGINX_WORKER_PROCESSES: "2"
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+
+service:
+  type: ClusterIP
+  port: 80
+
+metrics:
+  port: 8100
+  serviceMonitor:
+    enabled: false
+    interval: 15s
+    labels: {}
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  host: ""
+  tlsSecretName: ""
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+networkPolicy:
+  enabled: true
+  # Namespaces que podem chamar o proxy (vazio = qualquer pod do cluster).
+  ingressFromNamespaces: []
+  # Namespace do Prometheus que coleta /metrics.
+  monitoringNamespace: monitoring
+  # Namespaces dos upstreams que o gateway pode alcançar.
+  upstreamNamespaces: []
+  # Porta OTLP do coletor de traces.
+  otlpCollector:
+    namespace: observability
+    port: 4318
+
+terminationGracePeriodSeconds: 30
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+topologySpreadConstraints: []

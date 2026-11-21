@@ -1,0 +1,11 @@
+apiVersion: v2
+name: edge-gateway
+description: Gateway da plataforma de entrada (Kong OSS DB-less com o plugin token-policy).
+type: application
+version: 0.1.0
+# Versão da imagem platform-edge/gateway (Kong 3.9.1 + token-policy).
+appVersion: "0.1.0"
+keywords: [api-gateway, kong, jwt, rate-limit]
+home: https://github.com/JohnnyMatteus/platform-edge
+maintainers:
+  - name: Johnny Santos

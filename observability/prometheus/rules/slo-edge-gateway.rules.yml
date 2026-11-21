@@ -1,0 +1,85 @@
+# SLOs da plataforma de entrada (ver docs/slos.md).
+#   Disponibilidade: 99,9% das requisições sem 5xx em 30 dias.
+#   Latência: 99% das requisições respondidas em até 400 ms em 30 dias.
+# 401, 403 e 429 são respostas corretas das políticas e contam como "boas".
+# Alertas por burn rate em múltiplas janelas (padrão do SRE Workbook):
+#   page   -> 14,4x em 1h e 5m (consome 2% do orçamento em 1h)
+#   ticket -> 6x em 6h e 30m (consome 5% do orçamento em 6h)
+groups:
+  - name: slo-edge-gateway-recording
+    interval: 30s
+    rules:
+      - record: slo:edge_requests:rate5m
+        expr: sum by (route) (rate(kong_http_requests_total[5m]))
+
+      - record: slo:edge_availability_errors:ratio_rate5m
+        expr: sum(rate(kong_http_requests_total{code=~"5.."}[5m])) / sum(rate(kong_http_requests_total[5m]))
+      - record: slo:edge_availability_errors:ratio_rate30m
+        expr: sum(rate(kong_http_requests_total{code=~"5.."}[30m])) / sum(rate(kong_http_requests_total[30m]))
+      - record: slo:edge_availability_errors:ratio_rate1h
+        expr: sum(rate(kong_http_requests_total{code=~"5.."}[1h])) / sum(rate(kong_http_requests_total[1h]))
+      - record: slo:edge_availability_errors:ratio_rate6h
+        expr: sum(rate(kong_http_requests_total{code=~"5.."}[6h])) / sum(rate(kong_http_requests_total[6h]))
+
+      - record: slo:edge_latency_slow:ratio_rate5m
+        expr: 1 - (sum(rate(kong_request_latency_ms_bucket{le="400"}[5m])) / sum(rate(kong_request_latency_ms_count[5m])))
+      - record: slo:edge_latency_slow:ratio_rate30m
+        expr: 1 - (sum(rate(kong_request_latency_ms_bucket{le="400"}[30m])) / sum(rate(kong_request_latency_ms_count[30m])))
+      - record: slo:edge_latency_slow:ratio_rate1h
+        expr: 1 - (sum(rate(kong_request_latency_ms_bucket{le="400"}[1h])) / sum(rate(kong_request_latency_ms_count[1h])))
+      - record: slo:edge_latency_slow:ratio_rate6h
+        expr: 1 - (sum(rate(kong_request_latency_ms_bucket{le="400"}[6h])) / sum(rate(kong_request_latency_ms_count[6h])))
+
+  - name: slo-edge-gateway-alerts
+    rules:
+      - alert: EdgeAvailabilityBudgetBurnFast
+        expr: |
+          slo:edge_availability_errors:ratio_rate1h > (14.4 * 0.001)
+          and
+          slo:edge_availability_errors:ratio_rate5m > (14.4 * 0.001)
+        for: 2m
+        labels:
+          severity: page
+          slo: edge-availability
+        annotations:
+          summary: Orçamento de erro de disponibilidade queimando 14,4x mais rápido que o sustentável
+          description: "{{ $value | humanizePercentage }} de 5xx na última hora. Ver docs/runbooks.md#edgeavailabilitybudgetburnfast"
+
+      - alert: EdgeAvailabilityBudgetBurnSlow
+        expr: |
+          slo:edge_availability_errors:ratio_rate6h > (6 * 0.001)
+          and
+          slo:edge_availability_errors:ratio_rate30m > (6 * 0.001)
+        for: 15m
+        labels:
+          severity: ticket
+          slo: edge-availability
+        annotations:
+          summary: Orçamento de erro de disponibilidade queimando 6x mais rápido que o sustentável
+          description: "{{ $value | humanizePercentage }} de 5xx nas últimas 6 horas. Ver docs/runbooks.md#edgeavailabilitybudgetburnslow"
+
+      - alert: EdgeLatencyBudgetBurnFast
+        expr: |
+          slo:edge_latency_slow:ratio_rate1h > (14.4 * 0.01)
+          and
+          slo:edge_latency_slow:ratio_rate5m > (14.4 * 0.01)
+        for: 2m
+        labels:
+          severity: page
+          slo: edge-latency
+        annotations:
+          summary: Requisições acima de 400 ms queimando o orçamento de latência 14,4x mais rápido
+          description: "{{ $value | humanizePercentage }} das requisições acima de 400 ms. Ver docs/runbooks.md#edgelatencybudgetburnfast"
+
+      - alert: EdgeLatencyBudgetBurnSlow
+        expr: |
+          slo:edge_latency_slow:ratio_rate6h > (6 * 0.01)
+          and
+          slo:edge_latency_slow:ratio_rate30m > (6 * 0.01)
+        for: 15m
+        labels:
+          severity: ticket
+          slo: edge-latency
+        annotations:
+          summary: Requisições acima de 400 ms queimando o orçamento de latência 6x mais rápido
+          description: "{{ $value | humanizePercentage }} das requisições acima de 400 ms. Ver docs/runbooks.md#edgelatencybudgetburnslow"

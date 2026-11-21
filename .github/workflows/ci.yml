@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  go:
+    name: Go (lint e testes)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: make go-lint
+      - run: make go-test
+
+  gateway:
+    name: Gateway (kong.yaml e plugin)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make gateway-validate
+      - run: make lua-test
+
+  terraform:
+    name: Terraform (fmt e validate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make tf-fmt
+      - run: make tf-validate
+
+  helm:
+    name: Helm (lint, template e kubeconform)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make helm-lint
+      - run: make helm-template > /dev/null
+      - run: make kubeconform
+
+  prometheus:
+    name: Prometheus (promtool)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make prom-check
+      - run: make prom-test
+
+  smoke:
+    name: Smoke tests das políticas
+    runs-on: ubuntu-latest
+    needs: [go, gateway]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Sobe a stack (profile core)
+        run: make up PROFILES=core
+      - name: Roda os smoke tests
+        run: make test-integration
+      - name: Logs da stack em caso de falha
+        if: failure()
+        run: COMPOSE_PROFILES=core docker compose logs --no-color --tail=200
+      - name: Derruba a stack
+        if: always()
+        run: make down
