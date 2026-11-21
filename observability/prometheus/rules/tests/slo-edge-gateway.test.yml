@@ -1,0 +1,143 @@
+# Testes unitários das regras: promtool test rules <arquivo>.
+rule_files:
+  - ../slo-edge-gateway.rules.yml
+  - ../edge-policies.rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  # 5% de 5xx por 1h30: burn rate de 50x, dispara o page de disponibilidade.
+  - interval: 1m
+    input_series:
+      - series: 'kong_http_requests_total{route="payments-read",code="200",consumer="payments-ops"}'
+        values: '0+950x90'
+      - series: 'kong_http_requests_total{route="payments-read",code="502",consumer="payments-ops"}'
+        values: '0+50x90'
+    alert_rule_test:
+      - eval_time: 70m
+        alertname: EdgeAvailabilityBudgetBurnFast
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              slo: edge-availability
+            exp_annotations:
+              summary: Orçamento de erro de disponibilidade queimando 14,4x mais rápido que o sustentável
+              description: "5% de 5xx na última hora. Ver docs/runbooks.md#edgeavailabilitybudgetburnfast"
+
+  # Negações das políticas (401, 403, 429) não consomem orçamento de erro.
+  - interval: 1m
+    input_series:
+      - series: 'kong_http_requests_total{route="payments-write",code="200",consumer="payments-ops"}'
+        values: '0+100x90'
+      - series: 'kong_http_requests_total{route="payments-write",code="429",consumer="payments-ops"}'
+        values: '0+20x90'
+      - series: 'kong_http_requests_total{route="payments-write",code="401",consumer=""}'
+        values: '0+10x90'
+    alert_rule_test:
+      - eval_time: 70m
+        alertname: EdgeAvailabilityBudgetBurnFast
+        exp_alerts: []
+      - eval_time: 70m
+        alertname: EdgeAvailabilityBudgetBurnSlow
+        exp_alerts: []
+
+  # 429 sustentado para um cliente numa rota gera alerta informativo.
+  - interval: 1m
+    input_series:
+      - series: 'kong_http_requests_total{route="payments-write",code="429",consumer="payments-ops"}'
+        values: '0+60x30'
+      - series: 'kong_http_requests_total{route="payments-write",code="429",consumer="partner-batch"}'
+        values: '0+1x30'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: EdgeClientRateLimited
+        exp_alerts:
+          - exp_labels:
+              severity: info
+              consumer: payments-ops
+              route: payments-write
+            exp_annotations:
+              summary: "Cliente payments-ops limitado na rota payments-write"
+              description: "1 respostas 429 por segundo. Ver docs/runbooks.md#edgeclientratelimited"
+
+  # 30% de 401 com tráfego relevante.
+  - interval: 1m
+    input_series:
+      - series: 'kong_http_requests_total{route="studios-read",code="200",consumer="studio-portal"}'
+        values: '0+420x30'
+      - series: 'kong_http_requests_total{route="studios-read",code="401",consumer=""}'
+        values: '0+180x30'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: EdgeAuthFailuresSpike
+        exp_alerts:
+          - exp_labels:
+              severity: ticket
+            exp_annotations:
+              summary: Proporção de 401 acima de 20%
+              description: "30% das requisições sem autenticação válida. Ver docs/runbooks.md#edgeauthfailuresspike"
+
+  # 3% das requisições acima de 400 ms: burn rate de 3x, só abaixo do ticket (6x).
+  - interval: 1m
+    input_series:
+      - series: 'kong_request_latency_ms_bucket{route="studios-read",le="400"}'
+        values: '0+97x400'
+      - series: 'kong_request_latency_ms_count{route="studios-read"}'
+        values: '0+100x400'
+    alert_rule_test:
+      - eval_time: 380m
+        alertname: EdgeLatencyBudgetBurnSlow
+        exp_alerts: []
+      - eval_time: 380m
+        alertname: EdgeLatencyBudgetBurnFast
+        exp_alerts: []
+
+  # 20% acima de 400 ms: dispara o page de latência.
+  - interval: 1m
+    input_series:
+      - series: 'kong_request_latency_ms_bucket{route="studios-read",le="400"}'
+        values: '0+80x90'
+      - series: 'kong_request_latency_ms_count{route="studios-read"}'
+        values: '0+100x90'
+    alert_rule_test:
+      - eval_time: 70m
+        alertname: EdgeLatencyBudgetBurnFast
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              slo: edge-latency
+            exp_annotations:
+              summary: Requisições acima de 400 ms queimando o orçamento de latência 14,4x mais rápido
+              description: "20% das requisições acima de 400 ms. Ver docs/runbooks.md#edgelatencybudgetburnfast"
+
+  # Gateway e Keycloak fora do ar.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="edge-gateway",instance="gateway:8100"}'
+        values: '1 1 0 0 0 0 0'
+      - series: 'up{job="keycloak",instance="keycloak:9000"}'
+        values: '1 0 0 0 0 0 0 0'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: EdgeGatewayDown
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              job: edge-gateway
+              instance: gateway:8100
+            exp_annotations:
+              summary: Prometheus não consegue coletar métricas do gateway
+              description: "Alvo gateway:8100 fora do ar há 2 minutos. Ver docs/runbooks.md#edgegatewaydown"
+      - eval_time: 4m
+        alertname: KeycloakDown
+        exp_alerts: []
+      - eval_time: 7m
+        alertname: KeycloakDown
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              job: keycloak
+              instance: keycloak:9000
+            exp_annotations:
+              summary: Keycloak fora do ar
+              description: "Novos logins falham; tokens emitidos continuam válidos até expirar. Ver docs/runbooks.md#keycloakdown"
