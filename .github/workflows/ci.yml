@@ -17,7 +17,7 @@ jobs:
     name: Go (lint e testes)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
@@ -28,7 +28,7 @@ jobs:
     name: Gateway (kong.yaml e plugin)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: make gateway-validate
       - run: make lua-test
 
@@ -36,7 +36,7 @@ jobs:
     name: Terraform (fmt e validate)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: make tf-fmt
       - run: make tf-validate
 
@@ -44,7 +44,7 @@ jobs:
     name: Helm (lint, template e kubeconform)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: make helm-lint
       - run: make helm-template > /dev/null
       - run: make kubeconform
@@ -53,7 +53,7 @@ jobs:
     name: Prometheus (promtool)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: make prom-check
       - run: make prom-test
 
@@ -63,7 +63,7 @@ jobs:
     needs: [go, gateway]
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
