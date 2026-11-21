@@ -50,6 +50,16 @@ spec:
       ports:
         - port: {{ $np.otlpCollector.port }}
           protocol: TCP
+    {{- if $np.redis.enabled }}
+    # Redis do rate limit compartilhado
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $np.redis.namespace }}
+      ports:
+        - port: {{ $np.redis.port }}
+          protocol: TCP
+    {{- end }}
     {{- range $np.upstreamNamespaces }}
     # Upstream
     - to:

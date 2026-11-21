@@ -1,6 +1,6 @@
 # ADR 0004: Rate limit por consumer e por rota, com contagem local
 
-- Status: Aceito
+- Status: Aceito; contagem substituída por Redis no [ADR 0010](0010-rate-limit-compartilhado-com-redis.md)
 - Data: 2026-11-21
 
 ## Contexto

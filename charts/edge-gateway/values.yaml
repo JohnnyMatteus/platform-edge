@@ -92,6 +92,12 @@ networkPolicy:
   otlpCollector:
     namespace: observability
     port: 4318
+  # Redis do rate limit compartilhado entre réplicas (ADR 0010). O host em si
+  # vem do kong.yaml (redis.host); aqui só se libera o tráfego até ele.
+  redis:
+    enabled: true
+    namespace: edge-data
+    port: 6379
 
 terminationGracePeriodSeconds: 30
 

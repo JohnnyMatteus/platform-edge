@@ -32,9 +32,11 @@ const (
 )
 
 var (
-	gatewayURL  = envOr("GATEWAY_URL", "http://localhost:8000")
-	keycloakURL = envOr("KEYCLOAK_URL", "http://localhost:8080")
-	httpClient  = &http.Client{Timeout: 10 * time.Second}
+	gatewayURL = envOr("GATEWAY_URL", "http://localhost:8000")
+	// Segunda instância do gateway, para provar a contagem compartilhada.
+	gatewayReplicaURL = envOr("GATEWAY_REPLICA_URL", "http://localhost:8001")
+	keycloakURL       = envOr("KEYCLOAK_URL", "http://localhost:8080")
+	httpClient        = &http.Client{Timeout: 10 * time.Second}
 )
 
 func envOr(key, fallback string) string {
@@ -174,7 +176,13 @@ type response struct {
 
 func call(t *testing.T, method, path, token string, body io.Reader, headers map[string]string) response {
 	t.Helper()
-	req, err := http.NewRequest(method, gatewayURL+path, body)
+	return callAt(t, gatewayURL, method, path, token, body, headers)
+}
+
+// callAt permite escolher a instância do gateway (réplica A ou B).
+func callAt(t *testing.T, base, method, path, token string, body io.Reader, headers map[string]string) response {
+	t.Helper()
+	req, err := http.NewRequest(method, base+path, body)
 	if err != nil {
 		t.Fatalf("new request: %v", err)
 	}

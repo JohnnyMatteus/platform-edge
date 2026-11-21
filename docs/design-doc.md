@@ -224,7 +224,7 @@ Detalhes em [observabilidade.md](observabilidade.md) e [slos.md](slos.md).
 | Gateway | Kong OSS DB-less | KrakenD CE, Kong com banco, Envoy, OpenResty | [0001](adr/0001-kong-oss-db-less-como-gateway.md) |
 | Validação de JWT | Local, consumer por `azp` | Introspecção, JWKS em plugin próprio, consumer por issuer | [0002](adr/0002-jwt-com-chave-publica-por-consumer.md) |
 | Autorização | Plugin próprio com default-deny | `acl`, `pre-function`, OPA | [0003](adr/0003-autorizacao-por-papel-em-plugin-proprio.md) |
-| Rate limit | Por consumer e rota, local | Redis, IP, global | [0004](adr/0004-rate-limit-por-consumer-e-rota.md) |
+| Rate limit | Por consumer e rota, contagem em Redis | Local, IP, global | [0004](adr/0004-rate-limit-por-consumer-e-rota.md), [0010](adr/0010-rate-limit-compartilhado-com-redis.md) |
 | Realm | JSON em dev, Terraform em ambientes | Só Terraform, keycloak-config-cli | [0005](adr/0005-realm-exportado-em-dev-e-terraform-em-ambientes.md) |
 | Segredos | Vault (KV, PKI, AppRole) | Kubernetes Secrets, secrets manager da nuvem, SOPS | [0006](adr/0006-vault-kv-pki-approle.md) |
 | Ferramentas | Docker + Makefile como contrato | Actions específicas, toolbox | [0007](adr/0007-ferramentas-via-docker-e-makefile-unico.md) |
@@ -237,7 +237,6 @@ Detalhes em [observabilidade.md](observabilidade.md) e [slos.md](slos.md).
 | --- | --- | --- |
 | 1 (esta) | Fundação: compose, políticas, smoke tests, Terraform, Helm, SLOs | Núcleo defensável |
 | 2 | Sincronização da chave pública a partir do JWKS (job que gera o trecho do `kong.yaml`) | Rotação sem passo manual |
-| 2 | `policy: redis` no rate limit quando houver mais de uma réplica | Cota exata |
 | 3 | mTLS gateway → upstream com certificados da PKI do Vault | Confiança zero na rede interna |
 | 3 | Auth method Kubernetes no Vault e Vault Agent para o gateway | Sem AppRole no cluster |
 | 3 | GitOps com Argo CD aplicando o chart por ambiente; `terraform plan` em PR | Deploy auditável |

@@ -54,7 +54,13 @@ services:
             config:
               minute: 60
               limit_by: consumer
-              policy: local
+              policy: redis
+              redis: &ratelimit_redis
+                host: redis
+                port: 6379
+                database: 0
+                # Falha rápido: com fault_tolerant, Redis lento não pode virar latência de borda.
+                timeout: 200
               fault_tolerant: true
               hide_client_headers: false
               error_code: 429
@@ -72,7 +78,8 @@ services:
             config:
               minute: 5
               limit_by: consumer
-              policy: local
+              policy: redis
+              redis: *ratelimit_redis
               fault_tolerant: true
               hide_client_headers: false
               error_code: 429
@@ -88,6 +95,33 @@ services:
         strip_path: false
         # Sem token-policy explícita: herda a negação por padrão do serviço.
         # Mantida de propósito para que o smoke test prove o default-deny.
+
+  # Webhook do provedor de pagamentos (rota real do payments-events-go).
+  # Sem JWT: quem autentica é a assinatura HMAC do provedor, verificada pelo
+  # serviço. O gateway limita por IP e o tamanho do corpo.
+  - name: payments-webhook
+    protocol: http
+    host: payments.upstream
+    connect_timeout: 2000
+    read_timeout: 5000
+    write_timeout: 5000
+    retries: 0
+    routes:
+      - name: payments-webhook-pagafacil
+        paths: [/webhooks/pagafacil]
+        methods: [POST]
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 600
+              limit_by: ip
+              policy: redis
+              redis: *ratelimit_redis
+              fault_tolerant: true
+              hide_client_headers: false
+              error_code: 429
+              error_message: Rate limit exceeded
 
   - name: saas-multitenant
     protocol: http
@@ -117,7 +151,29 @@ services:
             config:
               minute: 120
               limit_by: consumer
-              policy: local
+              policy: redis
+              redis: *ratelimit_redis
+              fault_tolerant: true
+              hide_client_headers: false
+              error_code: 429
+              error_message: Rate limit exceeded
+      # Rota real do saas-multitenant (Laravel: prefixo /api/v1, porta 8000).
+      # O app valida o próprio JWT; aqui o gateway só exige papel de leitura.
+      - name: studios-api
+        paths: [/api/v1]
+        methods: [GET, OPTIONS]
+        strip_path: false
+        plugins:
+          - name: token-policy
+            config:
+              <<: *token_policy_base
+              required_roles: [studios.read, studios.admin]
+          - name: rate-limiting
+            config:
+              minute: 120
+              limit_by: consumer
+              policy: redis
+              redis: *ratelimit_redis
               fault_tolerant: true
               hide_client_headers: false
               error_code: 429
@@ -135,7 +191,8 @@ services:
             config:
               minute: 30
               limit_by: consumer
-              policy: local
+              policy: redis
+              redis: *ratelimit_redis
               fault_tolerant: true
               hide_client_headers: false
               error_code: 429
@@ -158,7 +215,8 @@ services:
             config:
               minute: 30
               limit_by: ip
-              policy: local
+              policy: redis
+              redis: *ratelimit_redis
               fault_tolerant: true
               hide_client_headers: false
               error_code: 429
@@ -194,7 +252,7 @@ upstreams:
           tcp_failures: 2
           timeouts: 3
     targets:
-      - target: payments-events-go:8080
+      - target: payments-api:8080
         weight: 999
       - target: payments-stub:8080
         weight: 1
@@ -218,7 +276,7 @@ upstreams:
           tcp_failures: 2
           timeouts: 2
     targets:
-      - target: saas-multitenant:8080
+      - target: app:8000
         weight: 999
       - target: studios-stub:8080
         weight: 1
@@ -263,7 +321,8 @@ plugins:
     config:
       minute: 20
       limit_by: consumer
-      policy: local
+      policy: redis
+      redis: *ratelimit_redis
       fault_tolerant: true
       hide_client_headers: false
       error_code: 429

@@ -1,7 +1,8 @@
 # Stack local da plataforma de entrada.
 #
 # Profiles:
-#   core          gateway, stubs, Keycloak e Vault (o mínimo para os smoke tests)
+#   core          gateway (duas instâncias), Redis, stubs, Keycloak e Vault
+#                 (o mínimo para os smoke tests)
 #   observability Prometheus, Grafana e Jaeger
 #   tools         LocalStack (Secrets Manager), alternativa comparada no ADR 0009
 #
@@ -44,6 +45,7 @@ services:
       timeout: 10s
       retries: 30
     depends_on:
+      redis: { condition: service_healthy }
       payments-stub: { condition: service_healthy }
       studios-stub: { condition: service_healthy }
     environment:
@@ -51,6 +53,44 @@ services:
       KONG_NGINX_WORKER_PROCESSES: "2"
     security_opt: ["no-new-privileges:true"]
     networks: [edge, portfolio-net]
+    restart: unless-stopped
+
+  # Segunda instância, só para provar que o rate limit conta em conjunto
+  # (ADR 0010). Mesma imagem do gateway, sem porta de status publicada.
+  gateway-replica:
+    image: platform-edge/gateway:dev
+    profiles: [core]
+    ports:
+      - "${GATEWAY_REPLICA_PORT:-8001}:8000"
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+    depends_on:
+      gateway: { condition: service_healthy }
+    environment:
+      KONG_NGINX_WORKER_PROCESSES: "2"
+    security_opt: ["no-new-privileges:true"]
+    networks: [edge, portfolio-net]
+    restart: unless-stopped
+
+  # Contador compartilhado do rate limit (ADR 0010). Sem AOF/RDB: perder a
+  # contagem num restart só zera a janela de 1 minuto.
+  redis:
+    image: redis:7.4.6-alpine
+    profiles: [core]
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "64mb", "--maxmemory-policy", "volatile-ttl"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    networks: [edge]
     restart: unless-stopped
 
   # Imita o payments-events-go (projeto 1). Sem porta publicada: só o gateway alcança.
@@ -203,6 +243,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  redis-data:
   prometheus-data:
   grafana-data:
   localstack-data:
