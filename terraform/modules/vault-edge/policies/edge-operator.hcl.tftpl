@@ -1,0 +1,21 @@
+# Política do time de plataforma: administra os segredos da borda e os
+# certificados, sem acesso a outros mounts nem a sys/ além de leitura.
+path "${kv_path}/data/*" {
+  capabilities = ["create", "read", "update", "delete"]
+}
+
+path "${kv_path}/metadata/*" {
+  capabilities = ["read", "list", "delete"]
+}
+
+path "${pki_path}/issue/upstream-mtls" {
+  capabilities = ["update"]
+}
+
+path "${pki_path}/revoke" {
+  capabilities = ["update"]
+}
+
+path "sys/mounts" {
+  capabilities = ["read"]
+}
