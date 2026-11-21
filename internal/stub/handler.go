@@ -22,6 +22,11 @@ const (
 	HeaderTraceparent = "Traceparent"
 )
 
+// healthPaths imita os health checks dos serviços reais: /healthz no
+// payments-events-go e /up (padrão do Laravel) no saas-multitenant. O gateway
+// usa esses caminhos nos health checks ativos dos upstreams.
+var healthPaths = map[string]bool{"/healthz": true, "/up": true}
+
 // maxBodyBytes protege o stub mesmo que o limite do gateway seja removido.
 const maxBodyBytes = 1 << 20
 
@@ -51,9 +56,9 @@ func NewHandler(service string, logger *slog.Logger, now func() time.Time) *Hand
 	return &Handler{service: service, logger: logger, now: now}
 }
 
-// ServeHTTP roteia /healthz e ecoa as demais requisições.
+// ServeHTTP responde aos health checks e ecoa as demais requisições.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path == "/healthz" {
+	if healthPaths[r.URL.Path] {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 		return
 	}

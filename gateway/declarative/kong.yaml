@@ -11,7 +11,8 @@ _transform: true
 
 services:
   - name: payments-events-go
-    url: http://payments-stub:8080
+    protocol: http
+    host: payments.upstream
     connect_timeout: 2000
     read_timeout: 5000
     write_timeout: 5000
@@ -89,7 +90,8 @@ services:
         # Mantida de propósito para que o smoke test prove o default-deny.
 
   - name: saas-multitenant
-    url: http://studios-stub:8080
+    protocol: http
+    host: studios.upstream
     connect_timeout: 2000
     read_timeout: 5000
     write_timeout: 5000
@@ -141,7 +143,8 @@ services:
 
   # Rota anônima: agenda pública dos estúdios. Sem JWT, limite por IP.
   - name: saas-multitenant-public
-    url: http://studios-stub:8080
+    protocol: http
+    host: studios.upstream
     connect_timeout: 2000
     read_timeout: 5000
     write_timeout: 5000
@@ -160,6 +163,65 @@ services:
               hide_client_headers: false
               error_code: 429
               error_message: Rate limit exceeded
+
+# Upstreams com fallback para os stubs (docs/rede-portfolio.md).
+# O serviço real, alcançado pela rede portfolio-net, tem peso 999; o stub,
+# peso 1. Health checks ativos tiram do balanceamento o alvo que não responde
+# (ou cujo nome não resolve), então sem o projeto real de pé todo o tráfego vai
+# para o stub. Com os dois saudáveis, cerca de 0,1% ainda vai para o stub:
+# aceitável em desenvolvimento, e em produção não há stub.
+upstreams:
+  - name: payments.upstream
+    algorithm: round-robin
+    healthchecks: &upstream_healthchecks
+      active:
+        type: http
+        http_path: /healthz
+        timeout: 2
+        concurrency: 2
+        healthy:
+          interval: 5
+          successes: 1
+          http_statuses: [200]
+        unhealthy:
+          interval: 5
+          http_failures: 2
+          tcp_failures: 2
+          timeouts: 2
+      passive:
+        unhealthy:
+          http_failures: 3
+          tcp_failures: 2
+          timeouts: 3
+    targets:
+      - target: payments-events-go:8080
+        weight: 999
+      - target: payments-stub:8080
+        weight: 1
+  - name: studios.upstream
+    algorithm: round-robin
+    healthchecks:
+      <<: *upstream_healthchecks
+      active:
+        type: http
+        # Health check padrão do Laravel no saas-multitenant.
+        http_path: /up
+        timeout: 2
+        concurrency: 2
+        healthy:
+          interval: 5
+          successes: 1
+          http_statuses: [200]
+        unhealthy:
+          interval: 5
+          http_failures: 2
+          tcp_failures: 2
+          timeouts: 2
+    targets:
+      - target: saas-multitenant:8080
+        weight: 999
+      - target: studios-stub:8080
+        weight: 1
 
 # Um consumer por client do Keycloak. O plugin jwt encontra o consumer pela
 # claim "azp" (client id), o que dá rate limit por cliente sem código extra.

@@ -17,15 +17,19 @@ func newTestHandler() *Handler {
 	return NewHandler("payments-events-go", slog.New(slog.NewJSONHandler(io.Discard, nil)), fixedNow)
 }
 
-func TestHealthz(t *testing.T) {
-	rec := httptest.NewRecorder()
-	newTestHandler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+func TestHealthPaths(t *testing.T) {
+	for _, path := range []string{"/healthz", "/up"} {
+		t.Run(path, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			newTestHandler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200", rec.Code)
-	}
-	if !strings.Contains(rec.Body.String(), `"ok"`) {
-		t.Fatalf("body = %q, want status ok", rec.Body.String())
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200", rec.Code)
+			}
+			if !strings.Contains(rec.Body.String(), `"ok"`) {
+				t.Fatalf("body = %q, want status ok", rec.Body.String())
+			}
+		})
 	}
 }
 
