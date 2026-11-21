@@ -1,0 +1,269 @@
+{
+  "realm": "edge",
+  "displayName": "Edge (dev)",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "bruteForceProtected": true,
+  "failureFactor": 5,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "waitIncrementSeconds": 60,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "passwordPolicy": "length(12) and notUsername",
+  "defaultSignatureAlgorithm": "RS256",
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+  "attributes": {},
+  "roles": {
+    "realm": [
+      {
+        "name": "payments.read",
+        "description": "Consultar pagamentos"
+      },
+      {
+        "name": "payments.write",
+        "description": "Criar e estornar pagamentos"
+      },
+      {
+        "name": "studios.read",
+        "description": "Consultar agenda e aulas dos estudios"
+      },
+      {
+        "name": "studios.admin",
+        "description": "Administrar estudios, planos e instrutores"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "studio-portal",
+      "name": "Portal dos estudios (SPA)",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:5173/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5173"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5173/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-edge-gateway",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "edge-gateway",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "payments-ops",
+      "name": "Backoffice de pagamentos",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "dev-only-payments-ops-secret",
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "protocolMappers": [
+        {
+          "name": "audience-edge-gateway",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "edge-gateway",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "partner-batch",
+      "name": "Integracao batch de parceiro",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "dev-only-partner-batch-secret",
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "audience-edge-gateway",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "edge-gateway",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "ana.operadora",
+      "email": "ana.operadora@example.com",
+      "firstName": "Ana",
+      "lastName": "Operadora",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "dev-only-change-me",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "payments.read",
+        "payments.write"
+      ]
+    },
+    {
+      "username": "bruno.instrutor",
+      "email": "bruno.instrutor@example.com",
+      "firstName": "Bruno",
+      "lastName": "Instrutor",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "dev-only-change-me",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "studios.read"
+      ]
+    },
+    {
+      "username": "carla.gestora",
+      "email": "carla.gestora@example.com",
+      "firstName": "Carla",
+      "lastName": "Gestora",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "dev-only-change-me",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "studios.read",
+        "studios.admin"
+      ]
+    },
+    {
+      "username": "diego.visitante",
+      "email": "diego.visitante@example.com",
+      "firstName": "Diego",
+      "lastName": "Visitante",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "dev-only-change-me",
+          "temporary": false
+        }
+      ],
+      "realmRoles": []
+    },
+    {
+      "username": "service-account-partner-batch",
+      "enabled": true,
+      "serviceAccountClientId": "partner-batch",
+      "realmRoles": [
+        "payments.read",
+        "payments.write"
+      ]
+    }
+  ],
+  "components": {
+    "org.keycloak.keys.KeyProvider": [
+      {
+        "name": "edge-dev-only-rs256",
+        "providerId": "rsa",
+        "subComponents": {},
+        "config": {
+          "priority": [
+            "1000"
+          ],
+          "enabled": [
+            "true"
+          ],
+          "active": [
+            "true"
+          ],
+          "algorithm": [
+            "RS256"
+          ],
+          "keyUse": [
+            "SIG"
+          ],
+          "privateKey": [
+            "MIIEowIBAAKCAQEArHixFytXcQ/3B8Ba5slKjreIQkgm90kMML1CGe4AEZbOeOh+njI1oNkLd/hjD8DKtxzdK6gKLWenscJISI2fV88uGv0Hq5Inc1Vprs9td7jC3TZKmyxAo/cwT8UXXtfGRwv4TjwfQry9xZtd048SgThi2R/glLaERMvjDd6Uq37UGIKgf/+PfJuoaL1J3GqgK3FobQv+TQf+JMqDOSpFqKM3hAQfGGF9C8BDI0ffG0JRIH1eibDBKYKeo5kqFEnTyd4+nq2Kqt4+poCNSE9/eW34xJ0HIFrhCyC+eRb+Rk8vD2brPWAOX6KeurOoSpu9m7jXaTPwGMuIGLTnUNzoOwIDAQABAoIBABXYqSszej1VYF0YUxYDTpu1SQqG89NEQB8MWgsex94dKW93Q6frhDoo7qL2UNX1/bd5bdUnJo2Jy7FggqIYuPj5F/CjNw2B0y1wwZTlrAq2LziwtSfipcLJ1NIbN6fz0lG9hROj2fHXe9JD/nvbFjpNV3gD6avsp+Ru+bEQDeo1o54V/K3I8pfBa2YbUdtXcAUmC2n7KivBZnmP9+YRVr/Kjfwt5X1toVom8k9bmXPT4WDy8h3boWUaV6jVZxap1vfvhXXlVuHnjlvwaAacoNFpuBxKI1rND3qE6mw423lLmXBuvKFCvtDTLaG+JscH3Cvg2AqtRetsBb32jO8OwkECgYEA6Qrj7spxFp+4uKnJllaAr+aMt7BayPDaZrMe239Py8IJ7U0VuMkkh/l2LHpFBOJL1Fh0vnw6wx3r8BN1gSAYOIDGn1y3kXoAuzfLk4p2TqN7Hf0Jl37BJb0vQ5RAyKSI/D5EgmSLMc6gOb8Meonieina9Ir+QhS7LObHJIEX+w8CgYEAvXZBrrbyDEo39AlqNENtaYH40h+/eL6WIHCRNmIm458DcVDMTXQ68GQFxwao8ZhbOu0SJvoKXmcqjzcrJVVeK07QKEKISbkYjPI9cmlpx2M71T+8PGkXe2uTvkrKS3C1QX66jdppycnv8GKo+MwyTEsPrrRFHyagEYhkAkoFsBUCgYEAvhdGCbhUOtIaSXclml4BJnp2+jb+Nr5QSEl/uCfHHTuwAUNJnqtkAw43mNw7hFpa5GErCV4oSJQVqoUU6jkVyLEyUze7/Qx5oD1I75aYHlk3yiRnOI4KWxBQh11c4s1jd+4K0BnXeM9E3xW5xhLHDEMr+SGPeLOUYnH0qxAqUX0CgYBkLFGAKhSCcP9ylUPFDF2eKm0/1C9tjP9deYcdxPmg4iN0126eCTVcgtYXLCtJSe/6kPxHBW9UCKIVBOtYGvHmXg5rKvpaWHZll3LrulaGaK5rCv7gxgP3aqK8O1kIWDhNv86tT+0dFxs480E6AuUZN5q8GW5ukQKTIpUWLMMjHQKBgEE5cRhDOI3H9ZCO3fDqbz+/4bFtS/EN9IGQ9n2Tk8uUiQj91GrOrQ+VINacgZc/1zBNCZDgb06dsFXspu1HRVPK2tqDnZrOWul+kG0bKW9VWXVAQ0Oy3FPiZms0zBKrIUe0vRLL3URXH5Dej+NJFIj4eKFWedu4BUcRZETxxSp6"
+          ],
+          "certificate": [
+            "MIIDETCCAfmgAwIBAgIUJlDU3t8ir+8BSdC/tUSLjUpWoY8wDQYJKoZIhvcNAQELBQAwGDEWMBQGA1UEAwwNZWRnZS1kZXYtb25seTAeFw0yNjExMjExOTUzNDZaFw0zNjExMTgxOTUzNDZaMBgxFjAUBgNVBAMMDWVkZ2UtZGV2LW9ubHkwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCseLEXK1dxD/cHwFrmyUqOt4hCSCb3SQwwvUIZ7gARls546H6eMjWg2Qt3+GMPwMq3HN0rqAotZ6exwkhIjZ9Xzy4a/QerkidzVWmuz213uMLdNkqbLECj9zBPxRde18ZHC/hOPB9CvL3Fm13TjxKBOGLZH+CUtoREy+MN3pSrftQYgqB//498m6hovUncaqArcWhtC/5NB/4kyoM5KkWoozeEBB8YYX0LwEMjR98bQlEgfV6JsMEpgp6jmSoUSdPJ3j6erYqq3j6mgI1IT395bfjEnQcgWuELIL55Fv5GTy8PZus9YA5fop66s6hKm72buNdpM/AYy4gYtOdQ3Og7AgMBAAGjUzBRMB0GA1UdDgQWBBQ31ws+7Cc8cDUKk6mm2pYywBNyxzAfBgNVHSMEGDAWgBQ31ws+7Cc8cDUKk6mm2pYywBNyxzAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQCfCRenMLRxrS/2pmeg3Hla7pFROwBcYccvZAHoxyHkxw+jflcxJGfeoWX+6Fva82kKQvvXQjqL7+8m6rXHZzMFEhQjFvGbSLA1Wtt9v+x/fqGwSN3bWg8Stck/HSs43j+eL1//xhSg85VKhQdsoSL0CMXw4Vy1QZQUXJUbm3WgFeKfmAGiHUfDJqjg0TpgvEOyLT5wpBA3cnBi1TNn6a6rtRTOhJB6i3jb77gG+IQO7GznZqvNLO6y0uO6PEOAXoEbWZuPSb0+mJDuj+05YPgMFt539QcjxmMsvvOFelWPAC3zn0MeLCl4rrzmuER0uDvyBsDDiU7SDkvOSO7JN31f"
+          ]
+        }
+      },
+      {
+        "name": "hmac-generated",
+        "providerId": "hmac-generated",
+        "subComponents": {},
+        "config": {
+          "priority": [
+            "100"
+          ],
+          "algorithm": [
+            "HS512"
+          ]
+        }
+      },
+      {
+        "name": "aes-generated",
+        "providerId": "aes-generated",
+        "subComponents": {},
+        "config": {
+          "priority": [
+            "100"
+          ]
+        }
+      }
+    ]
+  }
+}
