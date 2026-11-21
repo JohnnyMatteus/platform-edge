@@ -33,6 +33,7 @@ func TestEchoPropagatesGatewayHeaders(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/payments/v1/payments", strings.NewReader(`{"amount":1000}`))
 	req.Header.Set(HeaderConsumer, "payments-ops")
 	req.Header.Set(HeaderCredential, "payments-ops")
+	req.Header.Set(HeaderSubject, "user-1")
 	req.Header.Set(HeaderRequestID, "req-123")
 	req.Header.Set(HeaderTraceparent, "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
 	rec := httptest.NewRecorder()
@@ -52,6 +53,7 @@ func TestEchoPropagatesGatewayHeaders(t *testing.T) {
 		Path:       "/payments/v1/payments",
 		Consumer:   "payments-ops",
 		Credential: "payments-ops",
+		Subject:    "user-1",
 		RequestID:  "req-123",
 		TraceID:    "4bf92f3577b34da6a3ce929d0e0e4736",
 		BodyBytes:  int64(len(`{"amount":1000}`)),

@@ -17,7 +17,8 @@ import (
 const (
 	HeaderConsumer    = "X-Consumer-Username"
 	HeaderCredential  = "X-Credential-Identifier"
-	HeaderRequestID   = "Kong-Request-Id"
+	HeaderSubject     = "X-Authenticated-Subject"
+	HeaderRequestID   = "X-Kong-Request-Id"
 	HeaderTraceparent = "Traceparent"
 )
 
@@ -31,6 +32,7 @@ type Echo struct {
 	Path       string `json:"path"`
 	Consumer   string `json:"consumer"`
 	Credential string `json:"credential"`
+	Subject    string `json:"subject"`
 	RequestID  string `json:"request_id"`
 	TraceID    string `json:"trace_id"`
 	BodyBytes  int64  `json:"body_bytes"`
@@ -69,6 +71,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Path:       r.URL.Path,
 		Consumer:   r.Header.Get(HeaderConsumer),
 		Credential: r.Header.Get(HeaderCredential),
+		Subject:    r.Header.Get(HeaderSubject),
 		RequestID:  r.Header.Get(HeaderRequestID),
 		TraceID:    TraceID(r.Header.Get(HeaderTraceparent)),
 		BodyBytes:  n,
