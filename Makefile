@@ -26,18 +26,45 @@ help: ## Lista os alvos disponíveis
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-18s %s\n", $$1, $$2}'
 
 # ---------- Stack local ----------
-.PHONY: up down logs smoke
-up: ## Sobe a stack completa e espera os healthchecks
-	docker compose up -d --build --wait
+# Profiles do compose: core, observability, tools. Ex.: make up PROFILES=core
+PROFILES ?= core,observability
+ALL_PROFILES := core,observability,tools
+COMPOSE := COMPOSE_PROFILES=$(PROFILES) docker compose
+SERVICE ?= gateway
 
-down: ## Derruba a stack e remove volumes
-	docker compose down -v
+.PHONY: network up down logs ps seed test-integration smoke clean
+network: ## Cria a rede compartilhada portfolio-net (idempotente)
+	@docker network inspect portfolio-net > /dev/null 2>&1 || docker network create portfolio-net
 
-logs: ## Segue os logs do gateway
-	docker compose logs -f gateway
+up: network ## Sobe a stack (PROFILES=core,observability) e espera os healthchecks
+	$(COMPOSE) up -d --build --wait
 
-smoke: ## Smoke tests das políticas (exige make up)
+down: ## Derruba a stack de todos os profiles
+	COMPOSE_PROFILES=$(ALL_PROFILES) docker compose down --remove-orphans
+
+logs: ## Segue os logs de um serviço (SERVICE=gateway)
+	$(COMPOSE) logs -f $(SERVICE)
+
+ps: ## Estado dos containers
+	COMPOSE_PROFILES=$(ALL_PROFILES) docker compose ps
+
+seed: ## Aplica o Terraform local (realm edge-iac e Vault) contra a stack no ar
+	$(DOCKER_RUN) --network platform-edge -v $(CURDIR)/terraform:/terraform -w /terraform/envs/local \
+		-e TF_VAR_keycloak_url=http://keycloak:8080 -e TF_VAR_vault_address=http://vault:8200 \
+		-e TF_VAR_keycloak_admin_password=dev-only-change-me -e TF_VAR_vault_token=dev-only-root-token \
+		$(TERRAFORM_IMAGE) init -input=false -no-color > /dev/null
+	$(DOCKER_RUN) --network platform-edge -v $(CURDIR)/terraform:/terraform -w /terraform/envs/local \
+		-e TF_VAR_keycloak_url=http://keycloak:8080 -e TF_VAR_vault_address=http://vault:8200 \
+		-e TF_VAR_keycloak_admin_password=dev-only-change-me -e TF_VAR_vault_token=dev-only-root-token \
+		$(TERRAFORM_IMAGE) apply -auto-approve -input=false -no-color
+
+test-integration: ## Smoke tests das políticas contra a stack (exige make up)
 	go test -tags smoke -count=1 -v ./tests/smoke/...
+
+smoke: test-integration ## Alias de test-integration
+
+clean: ## Derruba tudo, remove volumes nomeados e imagens locais
+	COMPOSE_PROFILES=$(ALL_PROFILES) docker compose down -v --rmi local --remove-orphans
 
 # ---------- Go (upstream stub) ----------
 .PHONY: go-lint go-test
