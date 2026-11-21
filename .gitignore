@@ -1,0 +1,25 @@
+# Segredos e configuração local
+.env
+*.local.yaml
+config.local.yaml
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+.terraform.tfstate.lock.info
+
+# Helm
+charts/*/charts/
+*.tgz
+
+# Go
+/bin/
+coverage.out
+
+# Editores e SO
+.idea/
+.vscode/
+.DS_Store
