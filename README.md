@@ -130,15 +130,15 @@ Mais documentação: [hardening OWASP](docs/seguranca-owasp.md), [SLOs e alertas
 ## Trade-offs
 
 - **Validação local de JWT**: o gateway não depende do Keycloak no caminho da requisição, mas a revogação não é imediata (vale até o token expirar, 5 min) e a rotação de chave exige atualizar o `kong.yaml`.
-- **Rate limit local**: sem dependência externa, mas com várias réplicas o limite efetivo multiplica. Redis entra quando houver mais de uma réplica.
+- **Rate limit em Redis**: cota exata entre réplicas ([ADR 0010](docs/adr/0010-rate-limit-compartilhado-com-redis.md)), ao custo de um componente a mais; se o Redis cair, o tráfego passa sem limite (`fault_tolerant`).
 - **Plugin próprio**: preenche o que o Kong OSS não tem (papéis por claim), ao custo de manter código Lua acoplado à versão do Kong.
 - **Chave RSA fixa no ambiente local**: permite validar offline e forjar tokens nos testes; só existe porque é DEV ONLY.
 - **Fallback para stubs por peso**: com o produto real de pé, cerca de 0,1% das requisições locais ainda vai ao stub (o Kong OSS não tem alvo de reserva).
 
 ## Próximos passos
 
-- Gerar a chave pública do `kong.yaml` a partir do JWKS do Keycloak (rotação sem passo manual).
-- `policy: redis` no rate limit e rate limit por usuário e por plano.
+- Gerar a chave pública do `kong.yaml` a partir do JWKS do Keycloak por um job de CI (não é viável dentro do Kong OSS DB-less, ver ADR 0010).
+- Redis com alta disponibilidade e alerta de indisponibilidade; rate limit por usuário e por plano.
 - mTLS gateway → upstream com a PKI do Vault; auth method Kubernetes no Vault.
 - GitOps com Argo CD para o chart e `terraform plan` em PR.
 - Testes de carga (k6) para calibrar cotas e o SLO de latência.

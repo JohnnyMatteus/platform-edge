@@ -13,7 +13,6 @@ import (
 	"time"
 )
 
-// Cabeçalhos que o gateway injeta depois de autenticar a requisição.
 const (
 	HeaderConsumer    = "X-Consumer-Username"
 	HeaderCredential  = "X-Credential-Identifier"
@@ -30,7 +29,6 @@ var healthPaths = map[string]bool{"/healthz": true, "/up": true}
 // maxBodyBytes protege o stub mesmo que o limite do gateway seja removido.
 const maxBodyBytes = 1 << 20
 
-// Echo é a resposta devolvida para qualquer rota de negócio.
 type Echo struct {
 	Service    string `json:"service"`
 	Method     string `json:"method"`
@@ -44,19 +42,16 @@ type Echo struct {
 	ReceivedAt string `json:"received_at"`
 }
 
-// Handler responde às rotas do upstream simulado.
 type Handler struct {
 	service string
 	logger  *slog.Logger
 	now     func() time.Time
 }
 
-// NewHandler cria o handler. now pode ser injetado nos testes.
 func NewHandler(service string, logger *slog.Logger, now func() time.Time) *Handler {
 	return &Handler{service: service, logger: logger, now: now}
 }
 
-// ServeHTTP responde aos health checks e ecoa as demais requisições.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if healthPaths[r.URL.Path] {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
