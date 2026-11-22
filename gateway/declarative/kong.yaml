@@ -123,6 +123,40 @@ services:
               error_code: 429
               error_message: Rate limit exceeded
 
+  # API de operação do payments-events-go (/api/v1, ADR 0011 do projeto).
+  # Serviço separado do payments-events-go de propósito: o token de operador é
+  # opaco e quem o valida é o próprio app (OPERATOR_TOKENS). Sob o serviço
+  # principal, o plugin jwt rejeitaria esse token com 401 antes do app.
+  # Sem jwt, o rate limit é por IP. A rota não tem token-policy: a
+  # autenticação é do app, como no webhook acima.
+  # Caminho externo /payments/api/v1; strip_path remove o prefixo e o path
+  # do serviço (/api/v1) é prefixado, então o app recebe /api/v1/...
+  - name: payments-operator-api
+    protocol: http
+    host: payments.upstream
+    path: /api/v1
+    connect_timeout: 2000
+    read_timeout: 5000
+    write_timeout: 5000
+    # Sem retry: reprocessar DLQ e aprovar ajuste não são idempotentes.
+    retries: 0
+    routes:
+      - name: payments-operator
+        paths: [/payments/api/v1]
+        methods: [GET, POST, PUT, OPTIONS]
+        strip_path: true
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 60
+              limit_by: ip
+              policy: redis
+              redis: *ratelimit_redis
+              fault_tolerant: true
+              hide_client_headers: false
+              error_code: 429
+              error_message: Rate limit exceeded
+
   - name: saas-multitenant
     protocol: http
     host: studios.upstream
@@ -157,10 +191,13 @@ services:
               hide_client_headers: false
               error_code: 429
               error_message: Rate limit exceeded
-      # Rota real do saas-multitenant (Laravel: prefixo /api/v1, porta 8000).
-      # O app valida o próprio JWT; aqui o gateway só exige papel de leitura.
-      - name: studios-api
-        paths: [/api/v1]
+      # Rotas reais do saas-multitenant (Laravel: prefixo /api/v1, porta 8000),
+      # conferidas em routes/api.php e app/Modules/*/Http/routes.php.
+      # O app valida o próprio JWT e a autorização fina (tenant, dono da
+      # reserva); aqui o gateway só exige papel de estúdio. Leitura: aulas,
+      # reservas próprias, perfil, instrutores e configurações do estúdio.
+      - name: studios-api-read
+        paths: [/api/v1/sessions, /api/v1/me, /api/v1/instructors, /api/v1/studio]
         methods: [GET, OPTIONS]
         strip_path: false
         plugins:
@@ -171,6 +208,32 @@ services:
           - name: rate-limiting
             config:
               minute: 120
+              limit_by: consumer
+              policy: redis
+              redis: *ratelimit_redis
+              fault_tolerant: true
+              hide_client_headers: false
+              error_code: 429
+              error_message: Rate limit exceeded
+      # Escrita: criar série de aulas, editar/cancelar aula, reservar e cancelar
+      # reserva (POST /sessions/{id}/bookings, POST /bookings/{id}/cancel),
+      # PATCH de aula e de configurações. O gateway não separa por ação: quem
+      # decide se um instrutor pode criar série ou um aluno pode reservar é o
+      # app, a partir do papel e do tenant do token.
+      # Fora de propósito: /api/v1/me/whatsapp-link (POST/DELETE) fica sem rota,
+      # ou seja 404 no gateway, até haver decisão sobre o vínculo do WhatsApp.
+      - name: studios-api-write
+        paths: [/api/v1/sessions, /api/v1/class-series, /api/v1/bookings, /api/v1/studio]
+        methods: [POST, PATCH, OPTIONS]
+        strip_path: false
+        plugins:
+          - name: token-policy
+            config:
+              <<: *token_policy_base
+              required_roles: [studios.read, studios.admin]
+          - name: rate-limiting
+            config:
+              minute: 30
               limit_by: consumer
               policy: redis
               redis: *ratelimit_redis
