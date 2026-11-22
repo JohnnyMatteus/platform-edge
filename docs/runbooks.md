@@ -52,3 +52,10 @@ Mesmo diagnóstico; abrir ticket.
 1. Impacto: novos logins e renovações falham; tokens emitidos valem até expirar (5 min). O gateway segue funcionando.
 2. Ver logs e health (`/health/ready` na porta 9000).
 3. Se a indisponibilidade passar de alguns minutos, os usuários começam a ser deslogados; comunicar.
+
+## EdgeRateLimitRedisDown
+
+1. Impacto: o `rate-limiting` está com `fault_tolerant: true`, então o gateway deixa passar tráfego sem contar. Não há erro para o cliente, mas a proteção contra abuso e a cota por cliente estão suspensas.
+2. `make ps` e `make logs SERVICE=redis`. Se o Redis reiniciou, a contagem zera (sem AOF/RDB, por decisão do ADR 0010); isso é aceitável por uma janela.
+3. `redis_up == 0` com o exporter no ar: o Redis não responde ao `PING` do exporter (rede `edge` ou container parado).
+4. `up{job="redis-exporter"} == 0`: o exporter caiu; reiniciar o serviço `redis-exporter`.
