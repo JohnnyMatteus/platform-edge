@@ -125,6 +125,7 @@ prom-check: ## promtool check config (inclui as regras)
 
 prom-test: ## Testes unitários das regras de alerta
 	$(PROMTOOL) test rules rules/tests/slo-edge-gateway.test.yml
+	$(PROMTOOL) test rules rules/tests/edge-policies.test.yml
 
 # ---------- Agregados ----------
 .PHONY: lint test ci

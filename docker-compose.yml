@@ -94,6 +94,20 @@ services:
     restart: unless-stopped
 
   # Imita o payments-events-go (projeto 1). Sem porta publicada: só o gateway alcança.
+  # Expõe a saúde do Redis (redis_up) para o alerta de rate limit fora do ar.
+  # Sem ele o Prometheus não vê o contador compartilhado.
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.62.0
+    profiles: [observability]
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    depends_on:
+      redis: { condition: service_healthy }
+    networks: [edge]
+    restart: unless-stopped
+
   payments-stub:
     <<: *stub
     environment:

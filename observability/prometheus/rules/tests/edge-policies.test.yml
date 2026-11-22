@@ -1,0 +1,39 @@
+# Testes unitários do alerta de Redis do rate limit: promtool test rules <arquivo>.
+rule_files:
+  - ../edge-policies.rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  # Redis saudável: nenhum alerta.
+  - interval: 1m
+    input_series:
+      - series: 'redis_up{job="redis-exporter"}'
+        values: '1+0x30'
+      - series: 'up{job="redis-exporter"}'
+        values: '1+0x30'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: EdgeRateLimitRedisDown
+        exp_alerts: []
+
+  # Redis caiu: dispara após 1 minuto sustentado.
+  - interval: 1m
+    input_series:
+      - series: 'redis_up{job="redis-exporter"}'
+        values: '1+0x5 0+0x30'
+      - series: 'up{job="redis-exporter"}'
+        values: '1+0x30'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: EdgeRateLimitRedisDown
+        exp_alerts: []
+      - eval_time: 9m
+        alertname: EdgeRateLimitRedisDown
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              job: redis-exporter
+            exp_annotations:
+              summary: "Redis do rate limit fora do ar"
+              description: "Contador compartilhado indisponível há 1 minuto: o rate limit está sem efeito. Ver docs/runbooks.md#edgeratelimitredisdown"

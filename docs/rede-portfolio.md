@@ -73,11 +73,13 @@ Conferidas no código (somente leitura) neste ambiente:
 
 | Projeto | Porta na `portfolio-net` | Nome na rede | Rotas HTTP reais | No gateway |
 | --- | --- | --- | --- | --- |
-| payments-events-go | 8080 | `payments-api` (alias do `docker-compose.portfolio.yml`) | `POST /webhooks/pagafacil`, `GET /healthz`, `/readyz`, `/metrics` | `payments-webhook-pagafacil` (anônima, HMAC no serviço, limite por IP) |
-| saas-multitenant | 8000 | `app` (nome do serviço; sem alias) | `/api/v1/*` (Laravel: `studio`, `me`, `sessions`, `instructors`, `class-series`, `bookings`), `GET /up`, `/metrics` | `studios-api` em `/api/v1` (leitura, papel `studios.read` ou `studios.admin`) |
+| payments-events-go | 8080 | `payments-api` (alias do `docker-compose.portfolio.yml`) | `POST /webhooks/pagafacil`, `GET /healthz`, `/readyz`, `/metrics`, API de operação `/api/v1/*` (ADR 0011: token de operador, ativa só com `OPERATOR_TOKENS`) | `payments-webhook-pagafacil` (anônima, HMAC no serviço, limite por IP); `payments-operator-api` em `/payments/api/v1` (token de operador validado pelo app, limite de 60/min por IP) |
+| saas-multitenant | 8000 | `app` (nome do serviço; sem alias) | `/api/v1/*` (Laravel: `me`, `me/bookings`, `instructors`, `studio`, `sessions` com `GET`, `PATCH` e `POST /{id}/cancel`, `sessions/{id}/bookings`, `class-series`, `bookings/{id}/cancel`; `me/whatsapp-link` também), `GET /up`, `/metrics` | `studios-api-read` (GET, papel `studios.read` ou `studios.admin`, 120/min por cliente) e `studios-api-write` (POST/PATCH, mesmos papéis, 30/min por cliente) em `/api/v1`. `me/whatsapp-link` (POST/DELETE) fica sem rota de propósito: 404 no gateway |
 
 Pendências que dependem dos outros repositórios:
 
-- O payments-events-go não expõe API REST de pagamentos (`/payments/v1/*`): essas rotas do gateway só existem nos stubs. O serviço real recebe só o webhook.
+- O payments-events-go não expõe API REST de pagamentos (`/payments/v1/*`): essas rotas do gateway só existem nos stubs. O serviço real recebe o webhook e a API de operação (`/payments/api/v1/*` no gateway, `/api/v1/*` no app).
+- A API de operação do payments usa token de operador opaco, não JWT: por isso fica num serviço do gateway sem o plugin `jwt` (o `payments-events-go` tem o `jwt` no serviço e rejeitaria o token com 401). O papel de leitura ou ação e a identidade do operador são do app; em produção o ADR 0011 prevê um gateway OIDC na frente, o que muda essa rota.
 - O saas-multitenant valida o próprio JWT (realm `estudios`, issuer e JWKS próprios), não o do realm `edge`; o token do gateway só passaria se os dois realms forem unificados. As rotas `/studios/v1/*` também só existem nos stubs.
+- As rotas de escrita do saas exigem papel de estúdio no gateway, mas a permissão por ação (instrutor cria série, aluno reserva) é checada pelo app. Não há papel separado por ação no gateway.
 - O nome `app` é genérico: o ideal é o saas-multitenant declarar um alias (por exemplo `saas-multitenant`) na `portfolio-net`.

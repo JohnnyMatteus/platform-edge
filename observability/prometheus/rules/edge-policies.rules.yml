@@ -11,6 +11,20 @@ groups:
           summary: Prometheus não consegue coletar métricas do gateway
           description: "Alvo {{ $labels.instance }} fora do ar há 2 minutos. Ver docs/runbooks.md#edgegatewaydown"
 
+      - alert: EdgeRateLimitRedisDown
+        # Com fault_tolerant, o gateway deixa passar quando o Redis cai: sem
+        # este alerta a borda fica sem limite de taxa e ninguém percebe.
+        expr: |
+          redis_up{job="redis-exporter"} == 0
+          or
+          up{job="redis-exporter"} == 0
+        for: 1m
+        labels:
+          severity: page
+        annotations:
+          summary: Redis do rate limit fora do ar
+          description: "Contador compartilhado indisponível há 1 minuto: o rate limit está sem efeito. Ver docs/runbooks.md#edgeratelimitredisdown"
+
       - alert: EdgeAuthFailuresSpike
         # Mais de 20% de 401 com tráfego relevante: chave do realm trocada sem
         # atualizar o gateway, client mal configurado ou credential stuffing.
